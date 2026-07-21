@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DeliverySlip App</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f8f9fa; }
+      .navbar { background: #343a40; color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+      .navbar a { color: #ddd; text-decoration: none; margin-left: 1rem; }
+      .navbar a:hover { color: white; }
+      .container { max-width: 900px; margin: 2rem auto; padding: 1rem; background: white; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+      .flash { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 4px; }
+      .flash.success { background: #d4edda; color: #155724; }
+      .flash.info { background: #d1ecf1; color: #0c5460; }
+      .flash.warning { background: #fff3cd; color: #856404; }
+      .flash.danger { background: #f8d7da; color: #721c24; }
+      .form-group { margin-bottom: 1rem; }
+      label { display: block; font-weight: 600; margin-bottom: 0.3rem; }
+      input[type=text], input[type=password], textarea, select { width: 100%; padding: 0.65rem; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; }
+      button, .button-link { background: #007bff; color: white; border: none; padding: 0.75rem 1.2rem; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+      button:hover, .button-link:hover { background: #0069d9; }
+      table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+      th, td { padding: 0.75rem; border-bottom: 1px solid #dee2e6; text-align: left; }
+      th { background: #f1f3f5; }
+      .status { display: inline-block; padding: 0.35rem 0.65rem; border-radius: 999px; background: #e9ecef; color: #495057; }
+      .status.terdaftar { background: #cce5ff; color: #004085; }
+      .status.mencetak { background: #d4edda; color: #155724; }
+      .status.menyiapkan-barang { background: #fff3cd; color: #856404; }
+      .status.mengirim { background: #f8d7da; color: #721c24; }
+      .status.mengupload { background: #d1ecf1; color: #0c5460; }
+      .actions a { margin-right: 0.5rem; }
+    </style>
+  </head>
+  <body>
+    <header class="navbar">
+      <div><strong>DeliverySlip App</strong></div>
+      <div>
+        {% if g.user %}
+          <span>Logged in as {{ g.user.username }}</span>
+          <a href="{{ url_for('index') }}">Home</a>
+          <a href="{{ url_for('register_delivery') }}">Register Slip</a>
+          <a href="{{ url_for('change_password') }}">Change Password</a>
+          {% if g.user.is_root %}
+            <a href="{{ url_for('register_user') }}">Register User</a>
+            <a href="{{ url_for('list_users') }}">Users</a>
+          {% endif %}
+          <a href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+          <a href="{{ url_for('login') }}">Login</a>
+        {% endif %}
+      </div>
+    </header>
+    <main class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash {{ category|default('info') }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

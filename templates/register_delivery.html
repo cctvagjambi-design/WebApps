@@ -1,0 +1,23 @@
+{% extends 'layout.html' %}
+{% block content %}
+  <h1>Register Delivery Slip</h1>
+  <form method='post'>
+    <div class='form-group'>
+      <label for='slip_number'>Slip Number</label>
+      <input id='slip_number' type='text' name='slip_number' required />
+    </div>
+    <div class='form-group'>
+      <label for='customer_name'>Customer Name</label>
+      <input id='customer_name' type='text' name='customer_name' required />
+    </div>
+    <div class='form-group'>
+      <label for='equipment'>Equipment</label>
+      <input id='equipment' type='text' name='equipment' required />
+    </div>
+    <div class='form-group'>
+      <label for='delivery_date'>Delivery Date</label>
+      <input id='delivery_date' type='date' name='delivery_date' required />
+    </div>
+    <button type='submit'>Register Slip</button>
+  </form>
+{% endblock %}

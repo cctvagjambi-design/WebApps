@@ -1,0 +1,31 @@
+{% extends 'layout.html' %}
+{% block content %}
+  <h1>List Users</h1>
+  <p><a class='button-link' href='{{ url_for('register_user') }}'>Register New User</a></p>
+  {% if users %}
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+          <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ 'Root' if user.is_root else 'User' }}</td>
+            <td>
+              {% if not user.is_root or g.user.is_root %}
+                <a class='button-link' href='{{ url_for('change_user_password', user_id=user.id) }}'>Change Password</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No users found.</p>
+  {% endif %}
+{% endblock %}

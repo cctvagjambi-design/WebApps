@@ -1,0 +1,15 @@
+{% extends 'layout.html' %}
+{% block content %}
+  <h1>Update Delivery Slip Status</h1>
+  <p><strong>Slip Number:</strong> {{ slip.slip_number }}</p>
+  <p><strong>Description:</strong> {{ slip.description or '-' }}</p>
+  <p><strong>Current Status:</strong> <span class='status {{ slip.status|replace(' ', '-') }}'>{{ slip.status }}</span></p>
+  {% if next_status %}
+    <form method='post'>
+      <button type='submit'>Move to '{{ next_status }}'</button>
+    </form>
+  {% else %}
+    <p>This delivery slip is already in the final status.</p>
+  {% endif %}
+  <p><a href='{{ url_for('index') }}'>Back to list</a></p>
+{% endblock %}

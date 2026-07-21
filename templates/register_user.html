@@ -1,0 +1,19 @@
+{% extends 'layout.html' %}
+{% block content %}
+  <h1>Register New User</h1>
+  <form method='post'>
+    <div class='form-group'>
+      <label for='username'>Username</label>
+      <input id='username' type='text' name='username' required />
+    </div>
+    <div class='form-group'>
+      <label for='password'>Password</label>
+      <input id='password' type='password' name='password' required />
+    </div>
+    <div class='form-group'>
+      <label for='confirm_password'>Confirm Password</label>
+      <input id='confirm_password' type='password' name='confirm_password' required />
+    </div>
+    <button type='submit'>Register User</button>
+  </form>
+{% endblock %}
