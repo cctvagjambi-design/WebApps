@@ -17,8 +17,13 @@
             <td>{{ user.username }}</td>
             <td>{{ 'Root' if user.is_root else 'User' }}</td>
             <td>
-              {% if not user.is_root or g.user.is_root %}
+              {% if g.user.is_root %}
                 <a class='button-link' href='{{ url_for('change_user_password', user_id=user.id) }}'>Change Password</a>
+                {% if user.id != g.user.id %}
+                  <form method='post' action='{{ url_for('delete_user', user_id=user.id) }}' style='display:inline; margin-left:0.5rem;'>
+                    <button type='submit' onclick="return confirm('Delete this user?');">Delete</button>
+                  </form>
+                {% endif %}
               {% endif %}
             </td>
           </tr>

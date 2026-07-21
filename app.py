@@ -241,6 +241,20 @@ def change_user_password(user_id):
     return render_template("change_password.html", target_user=target_user, is_self=False)
 
 
+@app.route("/users/<int:user_id>/delete", methods=["POST"])
+@root_required
+def delete_user(user_id):
+    target_user = User.query.get_or_404(user_id)
+    if target_user.id == g.user.id:
+        flash("You cannot delete your own account.", "danger")
+        return redirect(url_for("list_users"))
+
+    db.session.delete(target_user)
+    db.session.commit()
+    flash(f"User '{target_user.username}' deleted successfully.", "success")
+    return redirect(url_for("list_users"))
+
+
 @app.route("/delivery/export")
 @login_required
 def export_delivery_excel():
