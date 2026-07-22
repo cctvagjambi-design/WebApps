@@ -1,0 +1,48 @@
+{% extends 'layout.html' %}
+{% block content %}
+  <h1>Import Equipment</h1>
+  <p>Select an Excel file to import equipment data. If you leave it empty, the app will use the default file at C:\Users\kusyadi.ASTRAGRAPHIA\Dev\mif.xlsx.</p>
+  <form method='post' enctype='multipart/form-data' style='max-width: 520px; margin-top: 1rem;' onsubmit='showProgress()'>
+    <div class='form-group'>
+      <label for='file'>Excel File (optional)</label>
+      <input id='file' type='file' name='file' accept='.xlsx,.xlsm,.xls' />
+    </div>
+    <button type='submit'>Import</button>
+  </form>
+
+  <div id='progressPanel' class='progress-wrap' style='display:none;'>
+    <div style='font-weight:700; margin-bottom:0.35rem;'>Importing data...</div>
+    <div class='progress-track'>
+      <div id='progressBar' class='progress-bar'></div>
+    </div>
+    <div id='progressText' style='margin-top:0.35rem; color:#475569;'>Preparing...</div>
+  </div>
+
+  {% if imported_count is not none %}
+    <p style='margin-top: 1rem;'>Imported {{ imported_count }} record(s).</p>
+  {% endif %}
+
+  <script>
+    function showProgress() {
+      const panel = document.getElementById('progressPanel');
+      const bar = document.getElementById('progressBar');
+      const text = document.getElementById('progressText');
+      panel.style.display = 'block';
+      bar.style.width = '20%';
+      text.textContent = 'Reading file...';
+      let progress = 20;
+      const interval = setInterval(() => {
+        progress = Math.min(progress + 8, 90);
+        bar.style.width = progress + '%';
+        if (progress < 40) {
+          text.textContent = 'Reading file...';
+        } else if (progress < 70) {
+          text.textContent = 'Processing rows...';
+        } else {
+          text.textContent = 'Saving records...';
+        }
+      }, 400);
+      window.addEventListener('load', () => clearInterval(interval), { once: true });
+    }
+  </script>
+{% endblock %}

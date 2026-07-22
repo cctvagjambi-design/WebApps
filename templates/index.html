@@ -1,42 +1,65 @@
 {% extends 'layout.html' %}
 {% block content %}
   <h1>JaDeMoS</h1>
-  <p><a class='button-link' href='{{ url_for('export_delivery_excel') }}'>Export to Excel</a></p>
+  <p class='header-actions'><a class='button-link' href='{{ url_for('export_delivery_excel') }}'>Export to Excel</a></p>
   {% if slips %}
-    <table>
-      <thead>
-        <tr>
-          <th>Slip Number</th>
-          <th>Customer</th>
-          <th>Equipment</th>
-          <th>Delivery Date</th>
-          <th>Status</th>
-          <th>Created By</th>
-          <th>Updated</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for slip in slips %}
+    <div class='table-wrapper desktop-table'>
+      <table>
+        <thead>
           <tr>
-            <td>{{ slip.slip_number }}</td>
-            <td>{{ slip.customer_name or '-' }}</td>
-            <td>{{ slip.equipment or '-' }}</td>
-            <td>{{ slip.delivery_date.strftime('%Y-%m-%d') if slip.delivery_date else '-' }}</td>
-            <td><span class='status {{ slip.status|replace(' ', '-') }}'>{{ slip.status }}</span></td>
-            <td>{{ slip.created_by.username }}</td>
-            <td>{{ slip.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td class='actions'>
-              {% if slip.status != 'mengupload' %}
-                <a class='button-link' href='{{ url_for('update_delivery', slip_id=slip.id) }}'>Update Status</a>
-              {% else %}
-                <span>Completed</span>
-              {% endif %}
-            </td>
+            <th>Slip Number</th>
+            <th>Customer</th>
+            <th>Equipment</th>
+            <th>Delivery Date</th>
+            <th>Status</th>
+            <th>Created By</th>
+            <th>Updated</th>
+            <th>Actions</th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for slip in slips %}
+            <tr>
+              <td>{{ slip.slip_number }}</td>
+              <td>{{ slip.customer_name or '-' }}</td>
+              <td>{{ slip.equipment or '-' }}</td>
+              <td>{{ slip.delivery_date.strftime('%Y-%m-%d') if slip.delivery_date else '-' }}</td>
+              <td><span class='status {{ slip.status|replace(' ', '-') }}'>{{ slip.status }}</span></td>
+              <td>{{ slip.created_by.username }}</td>
+              <td>{{ slip.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td class='actions'>
+                {% if slip.status != 'mengupload' %}
+                  <a class='button-link' href='{{ url_for('update_delivery', slip_id=slip.id) }}'>Update Status</a>
+                {% else %}
+                  <span>Completed</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class='mobile-list'>
+      {% for slip in slips %}
+        <div class='mobile-card'>
+          <div class='mobile-card-row'><strong>Slip Number</strong><span>{{ slip.slip_number }}</span></div>
+          <div class='mobile-card-row'><strong>Customer</strong><span>{{ slip.customer_name or '-' }}</span></div>
+          <div class='mobile-card-row'><strong>Equipment</strong><span>{{ slip.equipment or '-' }}</span></div>
+          <div class='mobile-card-row'><strong>Date</strong><span>{{ slip.delivery_date.strftime('%Y-%m-%d') if slip.delivery_date else '-' }}</span></div>
+          <div class='mobile-card-row'><strong>Status</strong><span class='status {{ slip.status|replace(' ', '-') }}'>{{ slip.status }}</span></div>
+          <div class='mobile-card-row'><strong>By</strong><span>{{ slip.created_by.username }}</span></div>
+          <div class='mobile-card-row'><strong>Updated</strong><span>{{ slip.updated_at.strftime('%Y-%m-%d %H:%M') }}</span></div>
+          <div class='mobile-card-row'><strong>Action</strong>
+            {% if slip.status != 'mengupload' %}
+              <a class='button-link' href='{{ url_for('update_delivery', slip_id=slip.id) }}'>Update</a>
+            {% else %}
+              <span>Completed</span>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
   {% else %}
     <p>No delivery slips found. <a href='{{ url_for('register_delivery') }}'>Register a slip</a> to get started.</p>
   {% endif %}

@@ -33,6 +33,16 @@ A simple Flask application for registering delivery slips and updating their sta
 
 3. Open http://127.0.0.1:5000 in your browser.
 
+   To make the app accessible from other devices on the same network, run:
+
+   ```powershell
+   $env:HOST = "0.0.0.0"
+   $env:PORT = "5000"
+   python app.py
+   ```
+
+   Then open http://<your-computer-ip>:5000 on the other device.
+
 ## Default root user
 
 The app initializes a default root user when the database is created:

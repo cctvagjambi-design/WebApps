@@ -1,0 +1,42 @@
+{% extends 'layout.html' %}
+{% block content %}
+  <h1>Equipment List</h1>
+  <p><a class='button-link' href='{{ url_for('import_equipment') }}'>Import Equipment</a></p>
+
+  <form method='get' style='max-width: 520px; margin: 1rem 0 1.2rem;'>
+    <div class='form-group'>
+      <label for='q'>Search equipment</label>
+      <input id='q' type='text' name='q' value='{{ query }}' placeholder='Equipment, serial, model, customer, address' />
+    </div>
+    <button type='submit'>Search</button>
+  </form>
+
+  {% if equipment %}
+    <div class='table-wrapper'>
+      <table>
+        <thead>
+          <tr>
+            <th>Equipment Number</th>
+            <th>Serial Number</th>
+            <th>Model</th>
+            <th>Customer</th>
+            <th>Address</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in equipment %}
+            <tr>
+              <td>{{ item.equipment_number }}</td>
+              <td>{{ item.serial_number or '-' }}</td>
+              <td>{{ item.model or '-' }}</td>
+              <td>{{ item.customer_name or '-' }}</td>
+              <td>{{ item.address or '-' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>No equipment imported yet.</p>
+  {% endif %}
+{% endblock %}

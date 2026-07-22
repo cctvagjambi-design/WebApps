@@ -5,8 +5,8 @@ from io import BytesIO
 
 from flask import Flask, flash, g, redirect, render_template, request, Response, session, url_for
 from flask_sqlalchemy import SQLAlchemy
-from openpyxl import Workbook
-from sqlalchemy import inspect, text
+from openpyxl import Workbook, load_workbook
+from sqlalchemy import inspect, or_, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
@@ -49,6 +49,16 @@ class DeliverySlip(db.Model):
     created_by = db.relationship("User", backref="delivery_slips")
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Equipment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    equipment_number = db.Column(db.String(120), unique=True, nullable=False)
+    serial_number = db.Column(db.String(120), nullable=True)
+    model = db.Column(db.String(120), nullable=True)
+    customer_name = db.Column(db.String(200), nullable=True)
+    address = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
 def ensure_delivery_slip_columns():
@@ -122,6 +132,38 @@ def get_next_status(current_status):
     if current_index + 1 < len(STATUS_CHOICES):
         return STATUS_CHOICES[current_index + 1]
     return None
+
+
+def can_manage_delivery_slip():
+    return g.user is not None
+
+
+def normalize_cell_value(value):
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def find_header_index(headers, *candidate_names):
+    normalized_candidates = {name.lower(): name for name in candidate_names}
+    for index, header in enumerate(headers):
+        if header is None:
+            continue
+        header_text = normalize_cell_value(header).lower()
+        if header_text in normalized_candidates:
+            return index
+    return None
+
+
+def load_equipment_workbook(uploaded_file=None):
+    if uploaded_file and getattr(uploaded_file, "filename", ""):
+        return load_workbook(uploaded_file, read_only=True, data_only=True), uploaded_file.filename
+
+    default_path = os.environ.get("DEFAULT_EQUIPMENT_IMPORT_PATH", r"C:\Users\kusyadi.ASTRAGRAPHIA\Dev\mif.xlsx")
+    if os.path.exists(default_path):
+        return load_workbook(default_path, read_only=True, data_only=True), default_path
+
+    raise FileNotFoundError("No Excel file provided and the default import file was not found.")
 
 
 @app.route("/")
@@ -293,6 +335,10 @@ def export_delivery_excel():
 @app.route("/delivery/register", methods=["GET", "POST"])
 @login_required
 def register_delivery():
+    if not can_manage_delivery_slip():
+        flash("You need to login first.", "warning")
+        return redirect(url_for("login"))
+
     if request.method == "POST":
         slip_number = request.form["slip_number"].strip()
         customer_name = request.form.get("customer_name", "").strip()
@@ -332,6 +378,10 @@ def register_delivery():
 @app.route("/delivery/<int:slip_id>/update", methods=["GET", "POST"])
 @login_required
 def update_delivery(slip_id):
+    if not can_manage_delivery_slip():
+        flash("You need to login first.", "warning")
+        return redirect(url_for("login"))
+
     slip = DeliverySlip.query.get_or_404(slip_id)
 
     next_status = get_next_status(slip.status)
@@ -346,5 +396,103 @@ def update_delivery(slip_id):
     return render_template("update_delivery.html", slip=slip, next_status=next_status)
 
 
+@app.route("/tools/equipment")
+@login_required
+def list_equipment():
+    query = request.args.get("q", "").strip()
+    if query:
+        filters = [
+            Equipment.equipment_number.contains(query),
+            Equipment.serial_number.contains(query),
+            Equipment.model.contains(query),
+            Equipment.customer_name.contains(query),
+            Equipment.address.contains(query),
+        ]
+        equipment = Equipment.query.filter(or_(*filters)).order_by(Equipment.created_at.desc(), Equipment.equipment_number.asc()).all()
+    else:
+        equipment = Equipment.query.order_by(Equipment.created_at.desc(), Equipment.equipment_number.asc()).all()
+    return render_template("equipment_list.html", equipment=equipment, query=query)
+
+
+@app.route("/tools/import-equipment", methods=["GET", "POST"])
+@login_required
+def import_equipment():
+    imported_count = None
+    if request.method == "POST":
+        uploaded_file = request.files.get("file")
+        if not uploaded_file or uploaded_file.filename == "":
+            flash("No file was selected, so the default import file will be used if it exists.", "info")
+
+        try:
+            workbook, source_name = load_equipment_workbook(uploaded_file)
+            sheet = workbook.active
+            imported_count = 0
+            total_rows = max(1, sheet.max_row - 1)
+
+            header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True))
+            headers = [normalize_cell_value(value) for value in header_row]
+            equipment_idx = find_header_index(headers, "equipment")
+            serial_idx = find_header_index(headers, "serial no.", "serial number")
+            model_idx = find_header_index(headers, "material description", "model no.", "model")
+            customer_idx = find_header_index(headers, "customer", "list name", "customer name", "name pelanggan")
+            address_idx = find_header_index(headers, "street", "city", "address", "alamat")
+
+            fallback_indices = {
+                "equipment": 3,
+                "serial": 4,
+                "model": 11,
+                "customer": 14,
+                "address": 15,
+            }
+
+            def get_value(row_values, index, fallback):
+                if index is not None and index < len(row_values):
+                    return normalize_cell_value(row_values[index])
+                if fallback is not None and fallback < len(row_values):
+                    return normalize_cell_value(row_values[fallback])
+                return ""
+
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                row_values = [normalize_cell_value(value) for value in row]
+                if not any(row_values):
+                    continue
+
+                equipment_number = get_value(row_values, equipment_idx, fallback_indices["equipment"])
+                serial_number = get_value(row_values, serial_idx, fallback_indices["serial"])
+                model = get_value(row_values, model_idx, fallback_indices["model"])
+                customer_name = get_value(row_values, customer_idx, fallback_indices["customer"])
+                address = get_value(row_values, address_idx, fallback_indices["address"])
+
+                if not equipment_number:
+                    continue
+
+                existing = Equipment.query.filter_by(equipment_number=equipment_number).first()
+                if existing:
+                    existing.serial_number = serial_number or existing.serial_number
+                    existing.model = model or existing.model
+                    existing.customer_name = customer_name or existing.customer_name
+                    existing.address = address or existing.address
+                else:
+                    equipment = Equipment(
+                        equipment_number=equipment_number,
+                        serial_number=serial_number or None,
+                        model=model or None,
+                        customer_name=customer_name or None,
+                        address=address or None,
+                    )
+                    db.session.add(equipment)
+                imported_count += 1
+
+            db.session.commit()
+            flash(f"Imported {imported_count} equipment record(s) from {source_name}.", "success")
+        except Exception as exc:
+            flash(f"Unable to import file: {exc}", "danger")
+
+    return render_template("import_equipment.html", imported_count=imported_count, total_rows=total_rows if 'total_rows' in locals() else None)
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "False").lower() in {"1", "true", "yes", "on"}
+    app.run(host=host, port=port, debug=debug)

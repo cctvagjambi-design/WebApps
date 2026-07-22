@@ -5,47 +5,101 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>JaDeMoS</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f8f9fa; }
-      .navbar { background: #343a40; color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
-      .navbar a { color: #ddd; text-decoration: none; margin-left: 1rem; }
+      * { box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #f4f7ff 0%, #eef4ff 100%); color: #1e293b; }
+      .navbar { background: linear-gradient(90deg, #0f172a 0%, #1d4ed8 100%); color: white; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.15); }
+      .navbar a { color: #e2e8f0; text-decoration: none; margin-left: 1rem; font-weight: 600; }
       .navbar a:hover { color: white; }
-      .container { max-width: 900px; margin: 2rem auto; padding: 1rem; background: white; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-      .flash { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 4px; }
-      .flash.success { background: #d4edda; color: #155724; }
-      .flash.info { background: #d1ecf1; color: #0c5460; }
-      .flash.warning { background: #fff3cd; color: #856404; }
-      .flash.danger { background: #f8d7da; color: #721c24; }
+      .nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+      .user-menu { position: relative; display: inline-block; margin-left: 0.25rem; }
+      .user-button { background: transparent; color: #e2e8f0; border: none; cursor: pointer; font-weight: 700; padding: 0.2rem 0.5rem; }
+      .user-button:hover { color: white; }
+      .user-dropdown { display: none; position: absolute; right: 0; background: white; color: #333; min-width: 180px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14); border-radius: 10px; z-index: 1000; overflow: hidden; }
+      .user-dropdown a { display: block; padding: 0.7rem 0.9rem; color: #334155; text-decoration: none; margin-left: 0; }
+      .user-dropdown a:hover { background: #eff6ff; }
+      .user-menu:hover .user-dropdown { display: block; }
+      .admin-menu { position: relative; display: inline-block; margin-left: 0.25rem; }
+      .admin-dropdown { display: none; position: absolute; left: 0; background: white; color: #333; min-width: 180px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14); border-radius: 10px; z-index: 1000; overflow: hidden; }
+      .admin-dropdown a { display: block; padding: 0.7rem 0.9rem; color: #334155; text-decoration: none; margin-left: 0; }
+      .admin-dropdown a:hover { background: #eff6ff; }
+      .admin-menu:hover .admin-dropdown { display: block; }
+      .container { max-width: 1080px; width: min(100% - 1rem, 1080px); margin: 1.25rem auto 2rem; padding: 1.1rem; background: rgba(255,255,255,0.95); border-radius: 16px; box-shadow: 0 12px 38px rgba(15, 23, 42, 0.07); }
+      h1 { margin-top: 0.2rem; color: #0f172a; }
+      .flash { padding: 0.8rem 1rem; margin-bottom: 1rem; border-radius: 10px; border: 1px solid transparent; }
+      .flash.success { background: #dcfce7; color: #166534; border-color: #86efac; }
+      .flash.info { background: #e0f2fe; color: #075985; border-color: #7dd3fc; }
+      .flash.warning { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+      .flash.danger { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
       .form-group { margin-bottom: 1rem; }
-      label { display: block; font-weight: 600; margin-bottom: 0.3rem; }
-      input[type=text], input[type=password], textarea, select { width: 100%; padding: 0.65rem; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; }
-      button, .button-link { background: #007bff; color: white; border: none; padding: 0.75rem 1.2rem; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-      button:hover, .button-link:hover { background: #0069d9; }
-      table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-      th, td { padding: 0.75rem; border-bottom: 1px solid #dee2e6; text-align: left; }
-      th { background: #f1f3f5; }
-      .status { display: inline-block; padding: 0.35rem 0.65rem; border-radius: 999px; background: #e9ecef; color: #495057; }
-      .status.terdaftar { background: #cce5ff; color: #004085; }
-      .status.mencetak { background: #d4edda; color: #155724; }
-      .status.menyiapkan-barang { background: #fff3cd; color: #856404; }
-      .status.mengirim { background: #f8d7da; color: #721c24; }
-      .status.mengupload { background: #d1ecf1; color: #0c5460; }
+      label { display: block; font-weight: 700; margin-bottom: 0.4rem; color: #334155; }
+      input[type=text], input[type=password], textarea, select { width: 100%; padding: 0.8rem 0.9rem; border: 1px solid #cbd5e1; border-radius: 10px; box-sizing: border-box; font-size: 1rem; background: #f8fafc; }
+      input:focus, textarea:focus, select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18); }
+      button, .button-link { background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%); color: white; border: none; padding: 0.8rem 1rem; border-radius: 999px; cursor: pointer; text-decoration: none; display: inline-block; min-height: 44px; font-weight: 700; box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2); }
+      button:hover, .button-link:hover { transform: translateY(-1px); }
+      .table-wrapper { overflow-x: auto; margin-top: 1rem; border-radius: 14px; border: 1px solid #e2e8f0; }
+      table { width: 100%; border-collapse: collapse; min-width: 620px; }
+      th, td { padding: 0.8rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
+      th { background: #f8fafc; color: #475569; }
+      .status { display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px; background: #e2e8f0; color: #475569; font-weight: 600; }
+      .status.terdaftar { background: #dbeafe; color: #1d4ed8; }
+      .status.mencetak { background: #dcfce7; color: #15803d; }
+      .status.menyiapkan-barang { background: #fef3c7; color: #b45309; }
+      .status.mengirim { background: #fee2e2; color: #b91c1c; }
+      .status.mengupload { background: #e0f2fe; color: #0369a1; }
       .actions a { margin-right: 0.5rem; }
+      .mobile-list { display: none; }
+      .header-actions { margin: 1rem 0 0.25rem; }
+      .progress-wrap { margin: 1rem 0; }
+      .progress-track { width: 100%; height: 12px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+      .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%); border-radius: 999px; transition: width 0.3s ease; }
+
+      @media (max-width: 768px) {
+        .navbar { padding: 0.8rem; }
+        .nav-links { width: 100%; margin-top: 0.35rem; }
+        .navbar a, .user-menu, .admin-menu { margin-left: 0; }
+        .container { margin: 0.75rem auto 1.25rem; padding: 0.9rem; border-radius: 12px; }
+        .desktop-table { display: none; }
+        .mobile-list { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; }
+        .mobile-card { border: 1px solid #e2e8f0; border-radius: 14px; padding: 0.85rem; background: #fff; box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06); }
+        .mobile-card-row { display: flex; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.45rem; }
+        .mobile-card-row strong { color: #475569; font-size: 0.95rem; }
+        .mobile-card-row span { text-align: right; word-break: break-word; }
+        button, .button-link { width: 100%; text-align: center; }
+        .actions a { margin-right: 0; }
+        input[type=text], input[type=password], textarea, select { font-size: 16px; }
+      }
     </style>
   </head>
   <body>
     <header class="navbar">
-      <div><strong>JaDeMoS</strong></div>
-      <div>
+      <div><strong>JADEMOS</strong></div>
+      <div class="nav-links">
         {% if g.user %}
-          <span>Logged in as {{ g.user.username }}</span>
           <a href="{{ url_for('index') }}">Home</a>
           <a href="{{ url_for('register_delivery') }}">Register Slip</a>
-          <a href="{{ url_for('change_password') }}">Change Password</a>
+          <div class="admin-menu">
+            <button class="user-button">Tools ▾</button>
+            <div class="admin-dropdown">
+              <a href="{{ url_for('import_equipment') }}">Import Equipment</a>
+              <a href="{{ url_for('list_equipment') }}">Equipment List</a>
+            </div>
+          </div>
           {% if g.user.is_root %}
-            <a href="{{ url_for('register_user') }}">Register User</a>
-            <a href="{{ url_for('list_users') }}">Users</a>
+            <div class="admin-menu">
+              <button class="user-button">User ▾</button>
+              <div class="admin-dropdown">
+                <a href="{{ url_for('register_user') }}">Register User</a>
+                <a href="{{ url_for('list_users') }}">Users</a>
+              </div>
+            </div>
           {% endif %}
-          <a href="{{ url_for('logout') }}">Logout</a>
+          <div class="user-menu">
+            <button class="user-button">{{ g.user.username }} ▾</button>
+            <div class="user-dropdown">
+              <a href="{{ url_for('change_password') }}">Change Password</a>
+              <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+          </div>
         {% else %}
           <a href="{{ url_for('login') }}">Login</a>
         {% endif %}
