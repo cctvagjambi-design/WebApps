@@ -77,7 +77,7 @@ def ensure_delivery_slip_columns():
 
 
 def init_db():
-    db.create_all()
+    #db.create_all()
     ensure_delivery_slip_columns()
     if not User.query.filter_by(username="root").first():
         root_password = os.environ.get("ROOT_PASSWORD", "root")
@@ -339,15 +339,14 @@ def register_delivery():
         flash("You need to login first.", "warning")
         return redirect(url_for("login"))
 
+    equipment_suggestions = Equipment.query.order_by(Equipment.equipment_number.asc()).all()
+
     if request.method == "POST":
         slip_number = request.form["slip_number"].strip()
-        customer_name = request.form.get("customer_name", "").strip()
         equipment = request.form.get("equipment", "").strip()
         delivery_date = request.form.get("delivery_date", "").strip()
         if not slip_number:
             flash("Delivery slip number is required.", "danger")
-        elif not customer_name:
-            flash("Customer name is required.", "danger")
         elif not equipment:
             flash("Equipment is required.", "danger")
         elif not delivery_date:
@@ -360,6 +359,8 @@ def register_delivery():
             except ValueError:
                 flash("Delivery date must be in YYYY-MM-DD format.", "danger")
             else:
+                equipment_record = Equipment.query.filter_by(equipment_number=equipment).first()
+                customer_name = equipment_record.customer_name if equipment_record else ""
                 slip = DeliverySlip(
                     slip_number=slip_number,
                     customer_name=customer_name,
@@ -372,7 +373,7 @@ def register_delivery():
                 db.session.commit()
                 flash("Delivery slip successfully registered.", "success")
                 return redirect(url_for("index"))
-    return render_template("register_delivery.html")
+    return render_template("register_delivery.html", equipment_suggestions=equipment_suggestions)
 
 
 @app.route("/delivery/<int:slip_id>/update", methods=["GET", "POST"])
@@ -400,6 +401,11 @@ def update_delivery(slip_id):
 @login_required
 def list_equipment():
     query = request.args.get("q", "").strip()
+    page = request.args.get("page", 1, type=int)
+    if page is None or page < 1:
+        page = 1
+
+    base_query = Equipment.query
     if query:
         filters = [
             Equipment.equipment_number.contains(query),
@@ -408,10 +414,25 @@ def list_equipment():
             Equipment.customer_name.contains(query),
             Equipment.address.contains(query),
         ]
-        equipment = Equipment.query.filter(or_(*filters)).order_by(Equipment.created_at.desc(), Equipment.equipment_number.asc()).all()
-    else:
-        equipment = Equipment.query.order_by(Equipment.created_at.desc(), Equipment.equipment_number.asc()).all()
-    return render_template("equipment_list.html", equipment=equipment, query=query)
+        base_query = base_query.filter(or_(*filters))
+
+    ordered_query = base_query.order_by(Equipment.created_at.desc(), Equipment.equipment_number.asc())
+    total_items = ordered_query.count()
+    per_page = 20
+    total_pages = max(1, (total_items + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+    equipment = ordered_query.offset(offset).limit(per_page).all()
+
+    return render_template(
+        "equipment_list.html",
+        equipment=equipment,
+        query=query,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        per_page=per_page,
+    )
 
 
 @app.route("/tools/import-equipment", methods=["GET", "POST"])
@@ -434,15 +455,16 @@ def import_equipment():
             equipment_idx = find_header_index(headers, "equipment")
             serial_idx = find_header_index(headers, "serial no.", "serial number")
             model_idx = find_header_index(headers, "material description", "model no.", "model")
-            customer_idx = find_header_index(headers, "customer", "list name", "customer name", "name pelanggan")
+            customer_idx = find_header_index(headers, "customer", "customer name", "name pelanggan")
+            list_name_idx = find_header_index(headers, "list name")
             address_idx = find_header_index(headers, "street", "city", "address", "alamat")
 
             fallback_indices = {
                 "equipment": 3,
                 "serial": 4,
                 "model": 11,
-                "customer": 14,
-                "address": 15,
+                "customer": 15,
+                "address": 16,
             }
 
             def get_value(row_values, index, fallback):
@@ -460,7 +482,9 @@ def import_equipment():
                 equipment_number = get_value(row_values, equipment_idx, fallback_indices["equipment"])
                 serial_number = get_value(row_values, serial_idx, fallback_indices["serial"])
                 model = get_value(row_values, model_idx, fallback_indices["model"])
-                customer_name = get_value(row_values, customer_idx, fallback_indices["customer"])
+                customer_name = get_value(row_values, list_name_idx, None)
+                if not customer_name:
+                    customer_name = get_value(row_values, customer_idx, fallback_indices["customer"])
                 address = get_value(row_values, address_idx, fallback_indices["address"])
 
                 if not equipment_number:

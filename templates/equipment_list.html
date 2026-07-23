@@ -8,10 +8,12 @@
       <label for='q'>Search equipment</label>
       <input id='q' type='text' name='q' value='{{ query }}' placeholder='Equipment, serial, model, customer, address' />
     </div>
+    <input type='hidden' name='page' value='1' />
     <button type='submit'>Search</button>
   </form>
 
   {% if equipment %}
+    <p style='margin: 0 0 0.8rem; color: #475569;'>Showing {{ equipment|length }} of {{ total_items }} equipment records.</p>
     <div class='table-wrapper'>
       <table>
         <thead>
@@ -36,6 +38,21 @@
         </tbody>
       </table>
     </div>
+    {% if total_pages > 1 %}
+      <div style='display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-top:1rem;'>
+        {% if page > 1 %}
+          <a class='button-link' href='{{ url_for("list_equipment") }}?q={{ query|urlencode }}&page={{ page - 1 }}'>Previous</a>
+        {% else %}
+          <span></span>
+        {% endif %}
+        <span>Page {{ page }} of {{ total_pages }}</span>
+        {% if page < total_pages %}
+          <a class='button-link' href='{{ url_for("list_equipment") }}?q={{ query|urlencode }}&page={{ page + 1 }}'>Next</a>
+        {% else %}
+          <span></span>
+        {% endif %}
+      </div>
+    {% endif %}
   {% else %}
     <p>No equipment imported yet.</p>
   {% endif %}

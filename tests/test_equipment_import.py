@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime
 from io import BytesIO
 
 from openpyxl import Workbook
@@ -88,6 +89,72 @@ class EquipmentImportTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"EQ-400", response.data)
+
+    def test_equipment_listing_page_is_paginated(self):
+        self.client.post("/login", data={"username": "alice", "password": "secret"}, follow_redirects=True)
+
+        with app.app_context():
+            for index in range(25):
+                equipment = Equipment(
+                    equipment_number=f"EQ-{index:03d}",
+                    serial_number=f"SN-{index:03d}",
+                    model=f"Model {index}",
+                    customer_name="Paginated User",
+                    address="Bandung",
+                    created_at=datetime(2024, 1, 1, 0, 0, index),
+                )
+                db.session.add(equipment)
+            db.session.commit()
+
+        response = self.client.get("/tools/equipment?page=2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"EQ-004", response.data)
+        self.assertIn(b"Previous", response.data)
+
+    def test_import_prefers_list_name_column_when_present(self):
+        self.client.post("/login", data={"username": "alice", "password": "secret"}, follow_redirects=True)
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Equipment"
+        sheet.append(["Equipment", "Serial Number", "Model", "", "", "", "", "", "", "", "", "", "", "", "Customer", "List Name", "Address"])
+        sheet.append(["EQ-600", "SN-600", "Model F", "", "", "", "", "", "", "", "", "", "", "", "ignore-me", "Rina", "Bandung"])
+
+        buffer = BytesIO()
+        workbook.save(buffer)
+        buffer.seek(0)
+
+        response = self.client.post(
+            "/tools/import-equipment",
+            data={"file": (buffer, "equipment.xlsx")},
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        with app.app_context():
+            equipment = Equipment.query.filter_by(equipment_number="EQ-600").first()
+            self.assertIsNotNone(equipment)
+            self.assertEqual(equipment.customer_name, "Rina")
+            self.assertEqual(equipment.address, "Bandung")
+
+    def test_register_delivery_form_suggests_equipment_from_database(self):
+        self.client.post("/login", data={"username": "alice", "password": "secret"}, follow_redirects=True)
+
+        with app.app_context():
+            equipment = Equipment(equipment_number="EQ-700", serial_number="SN-700", model="Model G", customer_name="Sinta", address="Yogyakarta")
+            db.session.add(equipment)
+            db.session.commit()
+
+        response = self.client.get("/delivery/register")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(b"Customer Name", response.data)
+        self.assertIn(b"EQ-700", response.data)
+        self.assertIn(b"equipment-options", response.data)
+        self.assertIn(b"Scan Barcode", response.data)
+        self.assertIn(b"@zxing/library", response.data)
 
 
 if __name__ == "__main__":

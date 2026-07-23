@@ -4,15 +4,23 @@
   <form method='post' style='max-width: 520px; margin-top: 1rem;'>
     <div class='form-group'>
       <label for='slip_number'>Slip Number</label>
-      <input id='slip_number' type='text' name='slip_number' required />
-    </div>
-    <div class='form-group'>
-      <label for='customer_name'>Customer Name</label>
-      <input id='customer_name' type='text' name='customer_name' required />
+      <div style='display:flex; gap:0.5rem; align-items:flex-start; flex-wrap:wrap;'>
+        <input id='slip_number' type='text' name='slip_number' required style='flex: 1 1 220px;' />
+        <button type='button' id='scan-barcode-btn' class='button-link' style='min-width:auto; padding:0.7rem 0.95rem;'>Scan Barcode</button>
+      </div>
+      <input id='barcode-file-input' type='file' accept='image/*' capture='environment' style='display:none;' />
+      <video id='barcode-video' autoplay playsinline muted style='display:none; width:100%; max-width:320px; border-radius:10px; margin-top:0.6rem;'></video>
+      <div id='barcode-status' style='margin-top:0.45rem; color:#64748b; font-size:0.95rem;'></div>
     </div>
     <div class='form-group'>
       <label for='equipment'>Equipment</label>
-      <input id='equipment' type='text' name='equipment' required />
+      <input id='equipment' type='text' name='equipment' list='equipment-options' placeholder='Type or choose equipment' required />
+      <datalist id='equipment-options'>
+        {% for item in equipment_suggestions %}
+          <option value='{{ item.equipment_number }}'>{% if item.customer_name %}{{ item.customer_name }}{% endif %}</option>
+        {% endfor %}
+      </datalist>
+      <p style='margin: 0.35rem 0 0; color: #64748b; font-size: 0.95rem;'>Suggestions are taken from the equipment table.</p>
     </div>
     <div class='form-group'>
       <label for='delivery_date'>Delivery Date</label>
@@ -20,4 +28,147 @@
     </div>
     <button type='submit'>Register Slip</button>
   </form>
+  <script src='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const scanButton = document.getElementById('scan-barcode-btn');
+      const slipNumberInput = document.getElementById('slip_number');
+      const barcodeVideo = document.getElementById('barcode-video');
+      const barcodeStatus = document.getElementById('barcode-status');
+      const barcodeFileInput = document.getElementById('barcode-file-input');
+
+      if (!scanButton || !slipNumberInput || !barcodeVideo || !barcodeStatus || !barcodeFileInput) {
+        return;
+      }
+
+      const supportsBarcodeDetector = typeof window.BarcodeDetector === 'function';
+      const zxingAvailable = window.ZXing && window.ZXing.BrowserMultiFormatReader;
+      const reader = zxingAvailable ? new window.ZXing.BrowserMultiFormatReader() : null;
+      let activeStream = null;
+
+      const stopStream = function () {
+        if (activeStream) {
+          activeStream.getTracks().forEach(function (track) {
+            track.stop();
+          });
+          activeStream = null;
+        }
+      };
+
+      const setValueFromBarcode = function (value) {
+        if (value) {
+          slipNumberInput.value = value;
+          barcodeStatus.textContent = 'Barcode detected and inserted into Slip Number.';
+        }
+      };
+
+      const scanFromImage = async function (file) {
+        if (reader) {
+          try {
+            const result = await reader.decodeFromImageUrl(URL.createObjectURL(file));
+            setValueFromBarcode(result.getText());
+            return;
+          } catch (error) {
+            barcodeStatus.textContent = 'Unable to read the barcode from the selected image. Please try again.';
+            return;
+          }
+        }
+
+        if (supportsBarcodeDetector) {
+          try {
+            const imageBitmap = await createImageBitmap(file);
+            const detector = new window.BarcodeDetector({ formats: ['code_128', 'qr_code', 'ean_13', 'ean_8', 'code_39', 'upc_a', 'upc_e'] });
+            const barcodes = await detector.detect(imageBitmap);
+            if (barcodes && barcodes.length > 0) {
+              setValueFromBarcode(barcodes[0].rawValue);
+            } else {
+              barcodeStatus.textContent = 'No barcode found in the selected image.';
+            }
+          } catch (error) {
+            barcodeStatus.textContent = 'Unable to read barcode from the selected image.';
+          }
+          return;
+        }
+
+        barcodeStatus.textContent = 'Barcode scanning is not supported by this browser. Please enter the slip number manually.';
+      };
+
+      scanButton.addEventListener('click', async function () {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          barcodeFileInput.click();
+          return;
+        }
+
+        if (!reader && !supportsBarcodeDetector) {
+          barcodeStatus.textContent = 'Barcode scanning is not supported by this browser. Please use the file picker or enter the slip number manually.';
+          barcodeFileInput.click();
+          return;
+        }
+
+        try {
+          barcodeStatus.textContent = 'Opening camera...';
+          barcodeVideo.style.display = 'block';
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          activeStream = stream;
+          barcodeVideo.srcObject = stream;
+          await barcodeVideo.play();
+
+          if (reader) {
+            try {
+              await reader.decodeFromVideoDevice(undefined, barcodeVideo, function (result) {
+                if (result) {
+                  setValueFromBarcode(result.getText());
+                  stopStream();
+                  barcodeVideo.style.display = 'none';
+                  barcodeVideo.srcObject = null;
+                }
+              });
+            } catch (error) {
+              barcodeStatus.textContent = 'Unable to read barcode from the camera. Please use the file picker instead.';
+            }
+            return;
+          }
+
+          const detector = new window.BarcodeDetector({ formats: ['code_128', 'qr_code', 'ean_13', 'ean_8', 'code_39', 'upc_a', 'upc_e'] });
+          let scanned = false;
+
+          const tick = async function () {
+            if (scanned) {
+              return;
+            }
+
+            try {
+              const barcodes = await detector.detect(barcodeVideo);
+              if (barcodes && barcodes.length > 0) {
+                scanned = true;
+                setValueFromBarcode(barcodes[0].rawValue);
+                stopStream();
+                barcodeVideo.style.display = 'none';
+                barcodeVideo.srcObject = null;
+              }
+            } catch (error) {
+              barcodeStatus.textContent = 'Unable to read barcode from the camera. Please use the file picker instead.';
+            }
+
+            if (!scanned) {
+              window.setTimeout(tick, 500);
+            }
+          };
+
+          tick();
+        } catch (error) {
+          barcodeStatus.textContent = 'Camera access was not granted. You can still use the file picker.';
+          barcodeFileInput.click();
+        }
+      });
+
+      barcodeFileInput.addEventListener('change', function (event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) {
+          return;
+        }
+        scanFromImage(file);
+      });
+    });
+  </script>
 {% endblock %}
