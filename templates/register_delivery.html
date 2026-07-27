@@ -9,7 +9,7 @@
         <button type='button' id='scan-barcode-btn' class='button-link' style='min-width:auto; padding:0.7rem 0.95rem;'>Scan Barcode</button>
       </div>
       <input id='barcode-file-input' type='file' accept='image/*' capture='environment' style='display:none;' />
-      <video id='barcode-video' autoplay playsinline muted style='display:none; width:100%; max-width:320px; border-radius:10px; margin-top:0.6rem;'></video>
+      <div id='interactive' class='viewport' style='display:none; width:100%; max-width:320px; border-radius:10px; margin-top:0.6rem; overflow:hidden; position:relative;'></div>
       <div id='barcode-status' style='margin-top:0.45rem; color:#64748b; font-size:0.95rem;'></div>
     </div>
     <div class='form-group'>
@@ -28,23 +28,21 @@
     </div>
     <button type='submit'>Register Slip</button>
   </form>
-  <script src='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'></script>
+  <script src='https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js'></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       const scanButton = document.getElementById('scan-barcode-btn');
       const slipNumberInput = document.getElementById('slip_number');
-      const barcodeVideo = document.getElementById('barcode-video');
+      const barcodeViewport = document.getElementById('interactive');
       const barcodeStatus = document.getElementById('barcode-status');
       const barcodeFileInput = document.getElementById('barcode-file-input');
 
-      if (!scanButton || !slipNumberInput || !barcodeVideo || !barcodeStatus || !barcodeFileInput) {
+      if (!scanButton || !slipNumberInput || !barcodeViewport || !barcodeStatus || !barcodeFileInput) {
         return;
       }
 
-      const supportsBarcodeDetector = typeof window.BarcodeDetector === 'function';
-      const zxingAvailable = window.ZXing && window.ZXing.BrowserMultiFormatReader;
-      const reader = zxingAvailable ? new window.ZXing.BrowserMultiFormatReader() : null;
       let activeStream = null;
+      let quaggaInitialized = false;
 
       const stopStream = function () {
         if (activeStream) {
@@ -52,6 +50,10 @@
             track.stop();
           });
           activeStream = null;
+        }
+        if (quaggaInitialized) {
+          Quagga.stop();
+          quaggaInitialized = false;
         }
       };
 
@@ -62,101 +64,120 @@
         }
       };
 
-      const scanFromImage = async function (file) {
-        if (reader) {
-          try {
-            const result = await reader.decodeFromImageUrl(URL.createObjectURL(file));
-            setValueFromBarcode(result.getText());
-            return;
-          } catch (error) {
-            barcodeStatus.textContent = 'Unable to read the barcode from the selected image. Please try again.';
-            return;
+      const scanFromImage = function (file) {
+        const imageUrl = URL.createObjectURL(file);
+        Quagga.decodeSingle({
+          inputStream: {
+            name: 'ImageInputStream',
+            type: 'ImageStream',
+            path: imageUrl
+          },
+          decoder: {
+            readers: ['code_128_reader', 'ean_reader', 'ean_8_reader', 'code_39_reader', 'upc_reader', 'upc_e_reader']
           }
-        }
-
-        if (supportsBarcodeDetector) {
-          try {
-            const imageBitmap = await createImageBitmap(file);
-            const detector = new window.BarcodeDetector({ formats: ['code_128', 'qr_code', 'ean_13', 'ean_8', 'code_39', 'upc_a', 'upc_e'] });
-            const barcodes = await detector.detect(imageBitmap);
-            if (barcodes && barcodes.length > 0) {
-              setValueFromBarcode(barcodes[0].rawValue);
-            } else {
-              barcodeStatus.textContent = 'No barcode found in the selected image.';
-            }
-          } catch (error) {
-            barcodeStatus.textContent = 'Unable to read barcode from the selected image.';
+        }, function (result) {
+          if (result && result.codeResult) {
+            setValueFromBarcode(result.codeResult.code);
+          } else {
+            barcodeStatus.textContent = 'No barcode found in the selected image. Please try again.';
           }
-          return;
-        }
-
-        barcodeStatus.textContent = 'Barcode scanning is not supported by this browser. Please enter the slip number manually.';
+          URL.revokeObjectURL(imageUrl);
+        });
       };
 
-      scanButton.addEventListener('click', async function () {
+      scanButton.addEventListener('click', function () {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           barcodeFileInput.click();
           return;
         }
 
-        if (!reader && !supportsBarcodeDetector) {
-          barcodeStatus.textContent = 'Barcode scanning is not supported by this browser. Please use the file picker or enter the slip number manually.';
+        if (!window.Quagga) {
+          barcodeStatus.textContent = 'QuaggaJS is not loaded. Please use the file picker or enter the slip number manually.';
           barcodeFileInput.click();
           return;
         }
 
         try {
           barcodeStatus.textContent = 'Opening camera...';
-          barcodeVideo.style.display = 'block';
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          activeStream = stream;
-          barcodeVideo.srcObject = stream;
-          await barcodeVideo.play();
+          barcodeViewport.style.display = 'block';
 
-          if (reader) {
-            try {
-              await reader.decodeFromVideoDevice(undefined, barcodeVideo, function (result) {
-                if (result) {
-                  setValueFromBarcode(result.getText());
-                  stopStream();
-                  barcodeVideo.style.display = 'none';
-                  barcodeVideo.srcObject = null;
-                }
-              });
-            } catch (error) {
-              barcodeStatus.textContent = 'Unable to read barcode from the camera. Please use the file picker instead.';
-            }
-            return;
-          }
-
-          const detector = new window.BarcodeDetector({ formats: ['code_128', 'qr_code', 'ean_13', 'ean_8', 'code_39', 'upc_a', 'upc_e'] });
-          let scanned = false;
-
-          const tick = async function () {
-            if (scanned) {
+          Quagga.init({
+            inputStream: {
+              name: 'Live',
+              type: 'LiveStream',
+              target: barcodeViewport,
+              constraints: {
+                facingMode: 'environment',
+                width: 640,
+                height: 480
+              }
+            },
+            locator: {
+              patchSize: 'x-large',
+              halfSample: false
+            },
+            numOfWorkers: 4,
+            frequency: 10,
+            decoder: {
+              readers: [
+                'code_128_reader',
+                'ean_reader',
+                'ean_8_reader',
+                'code_39_reader',
+                'code_39_vin_reader',
+                'codabar_reader',
+                'upc_reader',
+                'upc_e_reader',
+                'i2of5_reader'
+              ]
+            },
+            locate: true
+          }, function (err) {
+            if (err) {
+              console.error('Quagga init error:', err);
+              barcodeStatus.textContent = 'Unable to initialize camera: ' + err.message + '. Please use the file picker instead.';
+              barcodeViewport.style.display = 'none';
+              barcodeFileInput.click();
               return;
             }
 
-            try {
-              const barcodes = await detector.detect(barcodeVideo);
-              if (barcodes && barcodes.length > 0) {
-                scanned = true;
-                setValueFromBarcode(barcodes[0].rawValue);
-                stopStream();
-                barcodeVideo.style.display = 'none';
-                barcodeVideo.srcObject = null;
+            quaggaInitialized = true;
+            Quagga.start();
+            barcodeStatus.textContent = 'Scanning... Point the camera at a barcode.';
+
+            Quagga.onProcessed(function (result) {
+              var drawingCtx = Quagga.canvas.ctx.overlay,
+                  drawingCanvas = Quagga.canvas.dom.overlay;
+
+              if (result) {
+                if (result.boxes) {
+                  drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.getAttribute('width')), parseInt(drawingCanvas.getAttribute('height')));
+                  result.boxes.filter(function (box) {
+                    return box !== result.box;
+                  }).forEach(function (box) {
+                    Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, { color: 'green', lineWidth: 2 });
+                  });
+                }
+                if (result.box) {
+                  Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, drawingCtx, { color: '#00F', lineWidth: 2 });
+                }
+                if (result.codeResult && result.codeResult.code) {
+                  Quagga.ImageDebug.drawPath(result.line, { x: 'x', y: 'y' }, drawingCtx, { color: 'red', lineWidth: 3 });
+                }
               }
-            } catch (error) {
-              barcodeStatus.textContent = 'Unable to read barcode from the camera. Please use the file picker instead.';
-            }
+            });
+          });
 
-            if (!scanned) {
-              window.setTimeout(tick, 500);
+          Quagga.onDetected(function (result) {
+            console.log('Barcode detected:', result);
+            if (result && result.codeResult) {
+              setValueFromBarcode(result.codeResult.code);
+              stopStream();
+              barcodeViewport.style.display = 'none';
             }
-          };
-
-          tick();
+          });
         } catch (error) {
+          console.error('Camera error:', error);
           barcodeStatus.textContent = 'Camera access was not granted. You can still use the file picker.';
           barcodeFileInput.click();
         }
