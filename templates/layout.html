@@ -82,6 +82,8 @@
             <div class="admin-dropdown">
               <a href="{{ url_for('import_equipment') }}">Import Equipment</a>
               <a href="{{ url_for('list_equipment') }}">Equipment List</a>
+              <a href="{{ url_for('import_stock') }}">Import Stock</a>
+              <a href="{{ url_for('list_stock') }}">Stock List</a>
             </div>
           </div>
           {% if g.user.is_root %}

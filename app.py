@@ -61,6 +61,16 @@ class Equipment(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
+class Stock(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    material = db.Column(db.String(120), nullable=False)
+    material_description = db.Column(db.String(200), nullable=True)
+    bin_location = db.Column(db.String(120), nullable=True)
+    quantity = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 def ensure_delivery_slip_columns():
     inspector = inspect(db.engine)
     if "delivery_slip" not in inspector.get_table_names():
@@ -77,7 +87,7 @@ def ensure_delivery_slip_columns():
 
 
 def init_db():
-    #db.create_all()
+    db.create_all()
     ensure_delivery_slip_columns()
     if not User.query.filter_by(username="root").first():
         root_password = os.environ.get("ROOT_PASSWORD", "root")
@@ -164,6 +174,17 @@ def load_equipment_workbook(uploaded_file=None):
         return load_workbook(default_path, read_only=True, data_only=True), default_path
 
     raise FileNotFoundError("No Excel file provided and the default import file was not found.")
+
+
+def load_stock_workbook(uploaded_file=None):
+    if uploaded_file and getattr(uploaded_file, "filename", ""):
+        return load_workbook(uploaded_file, read_only=True, data_only=True), uploaded_file.filename
+
+    default_path = os.environ.get("DEFAULT_STOCK_IMPORT_PATH", r"C:\Users\kusyadi.ASTRAGRAPHIA\Dev\stock.xlsx")
+    if os.path.exists(default_path):
+        return load_workbook(default_path, read_only=True, data_only=True), default_path
+
+    raise FileNotFoundError("No Excel file provided and the default stock import file was not found.")
 
 
 @app.route("/")
@@ -435,6 +456,42 @@ def list_equipment():
     )
 
 
+@app.route("/tools/stock")
+@login_required
+def list_stock():
+    query = request.args.get("q", "").strip()
+    page = request.args.get("page", 1, type=int)
+    if page is None or page < 1:
+        page = 1
+
+    base_query = Stock.query
+    if query:
+        filters = [
+            Stock.material.contains(query),
+            Stock.material_description.contains(query),
+            Stock.bin_location.contains(query),
+        ]
+        base_query = base_query.filter(or_(*filters))
+
+    ordered_query = base_query.order_by(Stock.created_at.desc(), Stock.material.asc())
+    total_items = ordered_query.count()
+    per_page = 20
+    total_pages = max(1, (total_items + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+    stock = ordered_query.offset(offset).limit(per_page).all()
+
+    return render_template(
+        "stock_list.html",
+        stock=stock,
+        query=query,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        per_page=per_page,
+    )
+
+
 @app.route("/tools/import-equipment", methods=["GET", "POST"])
 @login_required
 def import_equipment():
@@ -442,7 +499,8 @@ def import_equipment():
     if request.method == "POST":
         uploaded_file = request.files.get("file")
         if not uploaded_file or uploaded_file.filename == "":
-            flash("No file was selected, so the default import file will be used if it exists.", "info")
+            flash("Please select a file to import.", "danger")
+            return render_template("import_equipment.html", imported_count=imported_count)
 
         try:
             workbook, source_name = load_equipment_workbook(uploaded_file)
@@ -513,6 +571,84 @@ def import_equipment():
             flash(f"Unable to import file: {exc}", "danger")
 
     return render_template("import_equipment.html", imported_count=imported_count, total_rows=total_rows if 'total_rows' in locals() else None)
+
+
+@app.route("/tools/import-stock", methods=["GET", "POST"])
+@login_required
+def import_stock():
+    imported_count = None
+    if request.method == "POST":
+        uploaded_file = request.files.get("file")
+        if not uploaded_file or uploaded_file.filename == "":
+            flash("Please select a file to import.", "danger")
+            return render_template("import_stock.html", imported_count=imported_count)
+
+        try:
+            workbook, source_name = load_stock_workbook(uploaded_file)
+            sheet = workbook.active
+            imported_count = 0
+            total_rows = max(1, sheet.max_row - 1)
+
+            header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True))
+            headers = [normalize_cell_value(value) for value in header_row]
+            material_idx = find_header_index(headers, "material")
+            material_desc_idx = find_header_index(headers, "material description")
+            bin_loc_idx = find_header_index(headers, "bin locatn", "bin location")
+            quantity_idx = find_header_index(headers, "unrestr.-use stock", "quantity", "total")
+
+            fallback_indices = {
+                "material": 5,
+                "material_desc": 6,
+                "bin_loc": 7,
+                "quantity": 9,
+            }
+
+            def get_value(row_values, index, fallback):
+                if index is not None and index < len(row_values):
+                    return normalize_cell_value(row_values[index])
+                if fallback is not None and fallback < len(row_values):
+                    return normalize_cell_value(row_values[fallback])
+                return ""
+
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                row_values = [normalize_cell_value(value) for value in row]
+                if not any(row_values):
+                    continue
+
+                material = get_value(row_values, material_idx, fallback_indices["material"])
+                material_description = get_value(row_values, material_desc_idx, fallback_indices["material_desc"])
+                bin_location = get_value(row_values, bin_loc_idx, fallback_indices["bin_loc"])
+                quantity_str = get_value(row_values, quantity_idx, fallback_indices["quantity"])
+
+                if not material:
+                    continue
+
+                try:
+                    quantity = int(quantity_str) if quantity_str else 0
+                except ValueError:
+                    quantity = 0
+
+                existing = Stock.query.filter_by(material=material).first()
+                if existing:
+                    existing.material_description = material_description or existing.material_description
+                    existing.bin_location = bin_location or existing.bin_location
+                    existing.quantity = quantity
+                else:
+                    stock = Stock(
+                        material=material,
+                        material_description=material_description or None,
+                        bin_location=bin_location or None,
+                        quantity=quantity,
+                    )
+                    db.session.add(stock)
+                imported_count += 1
+
+            db.session.commit()
+            flash(f"Imported {imported_count} stock record(s) from {source_name}.", "success")
+        except Exception as exc:
+            flash(f"Unable to import file: {exc}", "danger")
+
+    return render_template("import_stock.html", imported_count=imported_count, total_rows=total_rows if 'total_rows' in locals() else None)
 
 
 if __name__ == "__main__":

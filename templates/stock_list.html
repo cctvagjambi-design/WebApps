@@ -1,0 +1,57 @@
+{% extends 'layout.html' %}
+{% block content %}
+  <h1>Stock List</h1>
+  <p><a class='button-link' href='{{ url_for('import_stock') }}'>Import Stock</a></p>
+
+  <form method='get' style='max-width: 520px; margin: 1rem 0 1.2rem;'>
+    <div class='form-group'>
+      <label for='q'>Search stock</label>
+      <input id='q' type='text' name='q' value='{{ query }}' placeholder='Material, description, bin location' />
+    </div>
+    <input type='hidden' name='page' value='1' />
+    <button type='submit'>Search</button>
+  </form>
+
+  {% if stock %}
+    <p style='margin: 0 0 0.8rem; color: #475569;'>Showing {{ stock|length }} of {{ total_items }} stock records.</p>
+    <div class='table-wrapper'>
+      <table>
+        <thead>
+          <tr>
+            <th>Material</th>
+            <th>Material Description</th>
+            <th>Bin Location</th>
+            <th>Quantity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in stock %}
+            <tr>
+              <td>{{ item.material }}</td>
+              <td>{{ item.material_description or '-' }}</td>
+              <td>{{ item.bin_location or '-' }}</td>
+              <td>{{ item.quantity }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if total_pages > 1 %}
+      <div style='display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-top:1rem;'>
+        {% if page > 1 %}
+          <a class='button-link' href='{{ url_for("list_stock") }}?q={{ query|urlencode }}&page={{ page - 1 }}'>Previous</a>
+        {% else %}
+          <span></span>
+        {% endif %}
+        <span>Page {{ page }} of {{ total_pages }}</span>
+        {% if page < total_pages %}
+          <a class='button-link' href='{{ url_for("list_stock") }}?q={{ query|urlencode }}&page={{ page + 1 }}'>Next</a>
+        {% else %}
+          <span></span>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <p>No stock imported yet.</p>
+  {% endif %}
+{% endblock %}
