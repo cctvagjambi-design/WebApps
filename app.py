@@ -11,7 +11,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 os.makedirs(app.instance_path, exist_ok=True)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change-this-secret")
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "siginjai26X")
 database_path = os.path.join(app.instance_path, "app.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{database_path.replace('\\', '/')}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
