@@ -56,3 +56,5 @@ You can change the default password by setting the `ROOT_PASSWORD` environment v
 
 - Only the root user can access `/users/register` to create new users.
 - Regular users can access `/delivery/register` and update the status of their own delivery slips.
+
+flask run --host=0.0.0.0 --port=5000 --cert=cert.pem --key=key.pem
