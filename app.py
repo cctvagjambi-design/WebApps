@@ -361,6 +361,7 @@ def register_delivery():
         return redirect(url_for("login"))
 
     equipment_suggestions = Equipment.query.order_by(Equipment.equipment_number.asc()).all()
+    equipment_customer_map = {item.equipment_number: item.customer_name or "" for item in equipment_suggestions}
 
     if request.method == "POST":
         slip_number = request.form["slip_number"].strip()
@@ -394,7 +395,7 @@ def register_delivery():
                 db.session.commit()
                 flash("Delivery slip successfully registered.", "success")
                 return redirect(url_for("index"))
-    return render_template("register_delivery.html", equipment_suggestions=equipment_suggestions)
+    return render_template("register_delivery.html", equipment_suggestions=equipment_suggestions, equipment_customer_map=equipment_customer_map)
 
 
 @app.route("/delivery/<int:slip_id>/update", methods=["GET", "POST"])
@@ -513,8 +514,7 @@ def import_equipment():
             equipment_idx = find_header_index(headers, "equipment")
             serial_idx = find_header_index(headers, "serial no.", "serial number")
             model_idx = find_header_index(headers, "material description", "model no.", "model")
-            customer_idx = find_header_index(headers, "customer", "customer name", "name pelanggan")
-            list_name_idx = find_header_index(headers, "list name")
+            customer_idx = find_header_index(headers, "list name")
             address_idx = find_header_index(headers, "street", "city", "address", "alamat")
 
             fallback_indices = {
@@ -540,9 +540,7 @@ def import_equipment():
                 equipment_number = get_value(row_values, equipment_idx, fallback_indices["equipment"])
                 serial_number = get_value(row_values, serial_idx, fallback_indices["serial"])
                 model = get_value(row_values, model_idx, fallback_indices["model"])
-                customer_name = get_value(row_values, list_name_idx, None)
-                if not customer_name:
-                    customer_name = get_value(row_values, customer_idx, fallback_indices["customer"])
+                customer_name = get_value(row_values, customer_idx, fallback_indices["customer"])
                 address = get_value(row_values, address_idx, fallback_indices["address"])
 
                 if not equipment_number:

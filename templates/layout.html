@@ -14,7 +14,7 @@
       .user-menu { position: relative; display: inline-block; margin-left: 0.25rem; }
       .user-button { background: transparent; color: #e2e8f0; border: none; cursor: pointer; font-weight: 700; padding: 0.2rem 0.5rem; }
       .user-button:hover { color: white; }
-      .user-dropdown { display: none; position: absolute; right: 0; background: white; color: #333; min-width: 180px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14); border-radius: 10px; z-index: 1000; overflow: hidden; }
+      .user-dropdown { display: none; position: absolute; top: 100%; right: -10px; background: white; color: #333; min-width: 180px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14); border-radius: 10px; z-index: 9999; overflow: hidden; margin-top: 0.25rem; }
       .user-dropdown a { display: block; padding: 0.7rem 0.9rem; color: #334155; text-decoration: none; margin-left: 0; }
       .user-dropdown a:hover { background: #eff6ff; }
       .user-menu:hover .user-dropdown { display: block; }
@@ -31,6 +31,15 @@
       .flash.warning { background: #fef3c7; color: #92400e; border-color: #fde68a; }
       .flash.danger { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
       .form-group { margin-bottom: 1rem; }
+      .form-layout { width: 100%; max-width: 520px; margin-top: 1rem; }
+      .form-row { display: flex; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap; }
+      .field-inline { flex: 1 1 220px; min-width: 0; max-width: 300px; }
+      .barcode-button { min-width: auto; padding: 0.75rem 0.95rem; }
+      .scan-area { position: absolute; top: 50%; left: 50%; width: 70%; height: 32%; transform: translate(-50%, -50%); border: 2px dashed #10b981; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.18); pointer-events: none; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.9rem; text-align: center; z-index: 2; }
+      .viewport { width: 100%; max-width: 100%; aspect-ratio: 4 / 3; min-height: 240px; border-radius: 10px; margin-top: 0.6rem; overflow: hidden; position: relative; background: #000; }
+      .viewport video, .viewport canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover; }
+      .viewport canvas { z-index: 1; }
+      .scan-area { z-index: 2; }
       label { display: block; font-weight: 700; margin-bottom: 0.4rem; color: #334155; }
       input[type=text], input[type=password], textarea, select { width: 100%; padding: 0.8rem 0.9rem; border: 1px solid #cbd5e1; border-radius: 10px; box-sizing: border-box; font-size: 1rem; background: #f8fafc; }
       input:focus, textarea:focus, select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18); }
@@ -67,6 +76,7 @@
         button, .button-link { width: 100%; text-align: center; }
         .actions a { margin-right: 0; }
         input[type=text], input[type=password], textarea, select { font-size: 16px; }
+        .form-row { flex-direction: column; }
       }
     </style>
   </head>

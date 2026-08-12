@@ -150,11 +150,12 @@ class EquipmentImportTests(unittest.TestCase):
         response = self.client.get("/delivery/register")
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn(b"Customer Name", response.data)
+        self.assertIn(b"Customer Name", response.data)
         self.assertIn(b"EQ-700", response.data)
+        self.assertIn(b"Sinta", response.data)
         self.assertIn(b"equipment-options", response.data)
         self.assertIn(b"Scan Barcode", response.data)
-        self.assertIn(b"@zxing/library", response.data)
+        self.assertIn(b"quagga.min.js", response.data)
 
 
 if __name__ == "__main__":

@@ -1,26 +1,34 @@
 {% extends 'layout.html' %}
 {% block content %}
   <h1>Register Delivery Slip</h1>
-  <form method='post' style='max-width: 520px; margin-top: 1rem;'>
+  <form method='post' class='form-layout'>
     <div class='form-group'>
       <label for='slip_number'>Slip Number</label>
-      <div style='display:flex; gap:0.5rem; align-items:flex-start; flex-wrap:wrap;'>
-        <input id='slip_number' type='text' name='slip_number' required style='flex: 1 1 220px;' />
-        <button type='button' id='scan-barcode-btn' class='button-link' style='min-width:auto; padding:0.7rem 0.95rem;'>Scan Barcode</button>
+      <div class='form-row'>
+        <input id='slip_number' class='field-inline' type='text' name='slip_number' required />
+        <button type='button' id='scan-barcode-btn' class='button-link barcode-button'>Scan Barcode</button>
       </div>
       <input id='barcode-file-input' type='file' accept='image/*' capture='environment' style='display:none;' />
-      <div id='interactive' class='viewport' style='display:none; width:100%; max-width:320px; border-radius:10px; margin-top:0.6rem; overflow:hidden; position:relative;'></div>
+      <div id='interactive' class='viewport' style='display:none;'>
+        <div id='scan-area' class='scan-area'>
+          Arahkan barcode di dalam kotak
+        </div>
+      </div>
       <div id='barcode-status' style='margin-top:0.45rem; color:#64748b; font-size:0.95rem;'></div>
     </div>
     <div class='form-group'>
       <label for='equipment'>Equipment</label>
-      <input id='equipment' type='text' name='equipment' list='equipment-options' placeholder='Type or choose equipment' required />
+      <input id='equipment' type='text' name='equipment' list='equipment-options' placeholder='Type or choose equipment' required autocomplete='off' />
       <datalist id='equipment-options'>
         {% for item in equipment_suggestions %}
-          <option value='{{ item.equipment_number }}'>{% if item.customer_name %}{{ item.customer_name }}{% endif %}</option>
+          <option value='{{ item.equipment_number }}'>{{ item.equipment_number }} – {{ item.customer_name }}</option>
         {% endfor %}
       </datalist>
-      <p style='margin: 0.35rem 0 0; color: #64748b; font-size: 0.95rem;'>Suggestions are taken from the equipment table.</p>
+      <div style='margin-top:0.5rem;'>
+        <label for='customer_name' style='display:block; font-size:0.95rem; color:#374151;'>Customer Name</label>
+        <input id='customer_name' type='text' name='customer_name' readonly placeholder='Customer name will auto-fill when equipment is selected' style='width:100%;' />
+      </div>
+      <p style='margin: 0.35rem 0 0; color: #64748b; font-size: 0.95rem;'>Select an equipment number from the list; the customer name will be filled automatically.</p>
     </div>
     <div class='form-group'>
       <label for='delivery_date'>Delivery Date</label>
@@ -145,43 +153,39 @@
             Quagga.start();
             barcodeStatus.textContent = 'Scanning... Point the camera at a barcode.';
 
-            Quagga.onProcessed(function (result) {
-              var drawingCtx = Quagga.canvas.ctx.overlay,
-                  drawingCanvas = Quagga.canvas.dom.overlay;
-
-              if (result) {
-                if (result.boxes) {
-                  drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.getAttribute('width')), parseInt(drawingCanvas.getAttribute('height')));
-                  result.boxes.filter(function (box) {
-                    return box !== result.box;
-                  }).forEach(function (box) {
-                    Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, { color: 'green', lineWidth: 2 });
-                  });
-                }
-                if (result.box) {
-                  Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, drawingCtx, { color: '#00F', lineWidth: 2 });
-                }
-                if (result.codeResult && result.codeResult.code) {
-                  Quagga.ImageDebug.drawPath(result.line, { x: 'x', y: 'y' }, drawingCtx, { color: 'red', lineWidth: 3 });
-                }
+            if (window.Quagga && Quagga.offProcessed) {
+                Quagga.offProcessed();
               }
-            });
-          });
+              if (window.Quagga && Quagga.offDetected) {
+                Quagga.offDetected();
+              }
 
-          Quagga.onDetected(function (result) {
-            console.log('Barcode detected:', result);
-            if (result && result.codeResult) {
-              setValueFromBarcode(result.codeResult.code);
-              stopStream();
-              barcodeViewport.style.display = 'none';
-            }
-          });
+              Quagga.onDetected(function (result) {
+                if (result && result.codeResult) {
+                  setValueFromBarcode(result.codeResult.code);
+                  stopStream();
+                  barcodeViewport.style.display = 'none';
+                }
+              });
+            });
         } catch (error) {
           console.error('Camera error:', error);
           barcodeStatus.textContent = 'Camera access was not granted. You can still use the file picker.';
           barcodeFileInput.click();
         }
       });
+
+      const customerNameInput = document.getElementById('customer_name');
+      // @ts-ignore - Jinja2 template syntax
+      const equipmentToCustomer = {{ equipment_customer_map | tojson | safe }};
+
+      const updateCustomerName = function () {
+        const equipmentValue = document.getElementById('equipment').value.trim();
+        customerNameInput.value = equipmentToCustomer[equipmentValue] || '';
+      };
+
+      document.getElementById('equipment').addEventListener('input', updateCustomerName);
+      document.getElementById('equipment').addEventListener('change', updateCustomerName);
 
       barcodeFileInput.addEventListener('change', function (event) {
         const file = event.target.files && event.target.files[0];
